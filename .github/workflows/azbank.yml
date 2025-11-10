@@ -69,8 +69,8 @@ jobs:
           context: ./services/accounts
           push: true
           tags: |
-            ${{ env.ECR_REGISTRY }}/bank-accounts:latest
-            ${{ env.ECR_REGISTRY }}/bank-accounts:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/az/azbank:latest
+            ${{ env.ECR_REGISTRY }}/az/azbank:${{ github.sha }}
 
       # 8️⃣ Build & push FastAPI image
       - name: Build and push FastAPI (payments) image
