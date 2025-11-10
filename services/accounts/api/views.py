@@ -14,7 +14,6 @@ class AccountViewSet(viewsets.ModelViewSet):
     def deposit(self, request, pk=None):
         print(request.data)
         amount = int(request.data.get("amount_cents", 0))
-        print(amount, "-----")
         if amount <= 0:
             return Response({"error": "Amount must be > 0"}, status=400)
         with transaction.atomic():
