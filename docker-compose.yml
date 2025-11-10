@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: bank_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: azbank
+      POSTGRES_USER: ponnalas
+      POSTGRES_PASSWORD: 17801780s
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
+  mongo:
+    image: mongo:7
+    container_name: bank_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data/mongo:/data/db
+
+  accounts:
+    build: ./services/accounts
+    container_name: bank_accounts
+    restart: always
+    command: gunicorn accounts.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - ./services/accounts:/app
+    ports:
+      - "8001:8000"
+    environment:
+      DEBUG: "true"
+      DJANGO_SECRET_KEY: "local-dev-secret"
+      DB_HOST: postgres
+      DB_NAME: azbank
+      DB_USER: ponnalas
+      DB_PASSWORD: 17801780s
+    depends_on:
+      - postgres
+
+  payments:
+    build: ./payments
+    container_name: bank_payments
+    restart: always
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./payments/app:/app
+    ports:
+      - "8002:8000"
+    environment:
+      MONGO_URL: "mongodb://mongo:27017"
+      MONGO_DB: "payments_db"
+    depends_on:
+      - mongo
+
+  webapp:
+    build: ./webapp
+    container_name: bank_webapp
+    restart: always
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE=http://localhost
+    depends_on:
+      - accounts
+      - payments

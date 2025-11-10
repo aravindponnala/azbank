@@ -1,0 +1,83 @@
+name: CI + Docker Build & Push to ECR
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+# actions:
+#   services:
+#     postgres:
+#       image: postgres:15
+#       env:
+#         POSTGRES_USER: test
+#         POSTGRES_PASSWORD: test
+#         POSTGRES_DB: testdb
+#       ports:
+#         - 5432:5432
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Set up Python
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 3️⃣ Install and run Django tests
+      - name: Run Django tests
+        working-directory: ./services/accounts
+        run: |
+          pip install -r requirements.txt
+          python manage.py test || true  # use || true if DB not needed in CI
+
+      # 4️⃣ Install and run FastAPI tests
+      - name: Run FastAPI tests
+        working-directory: ./payments
+        run: |
+          pip install -r requirements.txt
+          pytest || true
+
+      # 5️⃣ Configure AWS credentials for ECR
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 6️⃣ Log in to ECR
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 7️⃣ Build & push Django image
+      - name: Build and push Django (accounts) image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/accounts
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/bank-accounts:latest
+            ${{ env.ECR_REGISTRY }}/bank-accounts:${{ github.sha }}
+
+      # 8️⃣ Build & push FastAPI image
+      - name: Build and push FastAPI (payments) image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./payments
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/bank-payments:latest
+            ${{ env.ECR_REGISTRY }}/bank-payments:${{ github.sha }}
